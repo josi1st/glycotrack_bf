@@ -21,13 +21,14 @@ class MesureGlycemieAdapter extends TypeAdapter<MesureGlycemie> {
       ..date = fields[1] as DateTime
       ..moment = fields[2] as String
       ..note = fields[3] as String
-      ..estSynchronisee = fields[4] as bool;
+      ..estSynchronisee = fields[4] as bool
+      ..idFhir = fields[5] as String?;
   }
 
   @override
   void write(BinaryWriter writer, MesureGlycemie obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.valeur)
       ..writeByte(1)
@@ -37,7 +38,9 @@ class MesureGlycemieAdapter extends TypeAdapter<MesureGlycemie> {
       ..writeByte(3)
       ..write(obj.note)
       ..writeByte(4)
-      ..write(obj.estSynchronisee);
+      ..write(obj.estSynchronisee)
+      ..writeByte(5)
+      ..write(obj.idFhir);
   }
 
   @override

@@ -87,20 +87,31 @@ class _ProfilScreenState extends State<ProfilScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.cloud_download, color: AppTheme.primaryBlue),
-              title: const Text('Récupérer depuis le serveur FHIR'),
+              leading: Icon(
+                provider.derniereVerificationOk == true
+                    ? Icons.verified
+                    : provider.derniereVerificationOk == false
+                        ? Icons.error_outline
+                        : Icons.cloud_sync,
+                color: provider.derniereVerificationOk == true
+                    ? AppTheme.accentGreen
+                    : provider.derniereVerificationOk == false
+                        ? AppTheme.alertRed
+                        : AppTheme.primaryBlue,
+              ),
+              title: const Text('Vérifier l\'intégrité avec le serveur FHIR'),
               subtitle: provider.messageFhir != null
                   ? Text(provider.messageFhir!, style: const TextStyle(fontSize: 12))
-                  : const Text('Vérifier les observations distantes (GET)',
+                  : const Text('Confirme que vos données synchronisées sont bien sur le serveur',
                       style: TextStyle(fontSize: 12)),
-              trailing: provider.recuperationFhir
+              trailing: provider.verificationFhir
                   ? const SizedBox(
                       width: 20, height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.chevron_right),
-              onTap: provider.recuperationFhir
+              onTap: provider.verificationFhir
                   ? null
-                  : () => provider.recupererDepuisFhir(),
+                  : () => provider.verifierIntegriteSync(),
             ),
             ListTile(
               leading: const Icon(Icons.notifications_active, color: AppTheme.primaryBlue),

@@ -19,6 +19,9 @@ class MesureGlycemie extends HiveObject {
   @HiveField(4)
   bool estSynchronisee = false;
 
+  @HiveField(5)
+  String? idFhir;
+
   String get statut {
     if (valeur > 1.26) return 'Élevée';
     if (valeur < 0.70) return 'Basse';

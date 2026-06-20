@@ -20,9 +20,10 @@ class SyncService {
     int compteur = 0;
 
     for (final mesure in nonSync) {
-      final succes = await _fhir.envoyerObservation(mesure);
-      if (succes) {
+      final idFhir = await _fhir.envoyerObservation(mesure);
+      if (idFhir != null) {
         await _storage.marquerSynchronisee(mesure);
+        await _storage.enregistrerIdFhir(mesure, idFhir);
         compteur++;
       }
     }

@@ -25,6 +25,11 @@ class StorageService {
     await mesure.save();
   }
 
+  Future<void> enregistrerIdFhir(MesureGlycemie mesure, String idFhir) async {
+    mesure.idFhir = idFhir;
+    await mesure.save();
+  }
+
   Future<void> supprimer(MesureGlycemie mesure) async {
     await mesure.delete();
   }

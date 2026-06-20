@@ -63,24 +63,44 @@ class MesuresProvider extends ChangeNotifier {
     if (count > 0) await charger();
   }
 
-  bool _recuperationFhir = false;
-  bool get recuperationFhir => _recuperationFhir;
+  bool _verificationFhir = false;
+  bool get verificationFhir => _verificationFhir;
   String? _messageFhir;
   String? get messageFhir => _messageFhir;
+  bool? _derniereVerificationOk;
+  bool? get derniereVerificationOk => _derniereVerificationOk;
 
-  Future<void> recupererDepuisFhir() async {
-    _recuperationFhir = true;
+  /// Vérifie qu'une mesure synchronisée existe bien côté serveur FHIR
+  Future<void> verifierIntegriteSync() async {
+    _verificationFhir = true;
     _messageFhir = null;
     notifyListeners();
 
-    try {
-      final observations = await _fhir.recupererObservations();
-      _messageFhir = '${observations.length} observation(s) trouvée(s) sur le serveur FHIR';
-    } catch (_) {
-      _messageFhir = 'Erreur lors de la récupération FHIR';
+    final mesuresSync = _mesures.where((m) => m.estSynchronisee && m.idFhir != null).toList();
+
+    if (mesuresSync.isEmpty) {
+      _messageFhir = 'Aucune mesure synchronisée à vérifier pour le moment.';
+      _verificationFhir = false;
+      _derniereVerificationOk = null;
+      notifyListeners();
+      return;
     }
 
-    _recuperationFhir = false;
+    final derniere = mesuresSync.first;
+    final observationDistante = await _fhir.recupererObservationParId(derniere.idFhir!);
+
+    if (observationDistante != null) {
+      final coherent = (observationDistante.valeur - derniere.valeur).abs() < 0.01;
+      _derniereVerificationOk = coherent;
+      _messageFhir = coherent
+          ? 'Intégrité confirmée : la dernière mesure (${derniere.valeurFormatee}) correspond bien au serveur FHIR.'
+          : 'Incohérence détectée entre les données locales et le serveur FHIR.';
+    } else {
+      _derniereVerificationOk = false;
+      _messageFhir = 'Impossible de retrouver cette mesure sur le serveur FHIR.';
+    }
+
+    _verificationFhir = false;
     notifyListeners();
   }
 
