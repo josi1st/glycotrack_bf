@@ -5,9 +5,14 @@ import 'package:timezone/data/latest.dart' as tz_data;
 class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+  bool _initialise = false;
 
   Future<void> initialiser() async {
+    if (_initialise) return;
+
     tz_data.initializeTimeZones();
+    // Burkina Faso est en UTC+0 (Africa/Ouagadougou)
+    tz.setLocalLocation(tz.getLocation('Africa/Ouagadougou'));
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -19,12 +24,16 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
+
+    _initialise = true;
   }
 
   Future<void> planifierRappelQuotidien({
     required int heure,
     required int minute,
   }) async {
+    await initialiser(); // garantit que tz.local est prêt avant de l'utiliser
+
     await _plugin.zonedSchedule(
       0,
       'GlycoTrack BF — Rappel',
@@ -64,5 +73,9 @@ class NotificationService {
 
   Future<void> annulerRappels() async {
     await _plugin.cancelAll();
+  }
+
+  Future<List<PendingNotificationRequest>> rappelsActifs() async {
+    return await _plugin.pendingNotificationRequests();
   }
 }

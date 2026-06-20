@@ -8,6 +8,7 @@ import 'models/mesure_glycemie.dart';
 import 'providers/mesures_provider.dart';
 import 'app.dart';
 import 'services/securite_service.dart';
+import 'services/notification_service.dart';
 
 const _storage = FlutterSecureStorage();
 
@@ -27,6 +28,7 @@ Future<List<int>> _obtenirCleChiffrement() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SecuriteService.activerMasquage();
+  await NotificationService().initialiser();
 
   await Hive.initFlutter();
   Hive.registerAdapter(MesureGlycemieAdapter());
