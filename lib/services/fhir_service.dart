@@ -96,4 +96,28 @@ class FhirService {
       return [];
     }
   }
+
+  /// Explore le serveur FHIR de façon indépendante : récupère les dernières
+  /// observations de glycémie de TOUS les contributeurs, pas seulement les nôtres.
+  /// Prouve un vrai GET exploratoire, non lié à nos propres envois.
+  Future<List<ObservationFhir>> explorerObservationsServeur({int limite = 15}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/Observation?code=2339-0&_count=$limite&_sort=-_lastUpdated'),
+        headers: {'Accept': 'application/fhir+json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final entries = data['entry'] as List? ?? [];
+        return entries
+            .map((e) => ObservationFhir.depuisJson(e['resource']))
+            .where((o) => o.id.isNotEmpty)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
 }

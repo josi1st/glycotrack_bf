@@ -11,7 +11,6 @@ class NotificationService {
     if (_initialise) return;
 
     tz_data.initializeTimeZones();
-    // Burkina Faso est en UTC+0 (Africa/Ouagadougou)
     tz.setLocalLocation(tz.getLocation('Africa/Ouagadougou'));
 
     const androidSettings =
@@ -32,13 +31,15 @@ class NotificationService {
     required int heure,
     required int minute,
   }) async {
-    await initialiser(); // garantit que tz.local est prêt avant de l'utiliser
+    await initialiser();
+
+    final prochaine = _prochaineInstance(heure, minute);
 
     await _plugin.zonedSchedule(
       0,
       'GlycoTrack BF — Rappel',
       'N\'oubliez pas de mesurer votre glycémie aujourd\'hui',
-      _prochaineInstance(heure, minute),
+      prochaine,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'rappel_glycemie',
@@ -48,10 +49,29 @@ class NotificationService {
           priority: Priority.high,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  /// Envoie une notification de test IMMÉDIATE (utile pour vérifier que tout fonctionne)
+  Future<void> testerNotificationImmediate() async {
+    await initialiser();
+    await _plugin.show(
+      999,
+      'GlycoTrack BF — Test',
+      'Si vous voyez ceci, les notifications fonctionnent correctement !',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'rappel_glycemie',
+          'Rappels de mesure',
+          channelDescription: 'Rappel quotidien pour mesurer la glycémie',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
     );
   }
 

@@ -6,6 +6,8 @@ import '../theme/app_theme.dart';
 import '../services/notification_service.dart';
 import '../services/pdf_service.dart';
 import 'package:open_filex/open_filex.dart';
+import 'explorateur_fhir_screen.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -17,6 +19,7 @@ class ProfilScreen extends StatefulWidget {
 class _ProfilScreenState extends State<ProfilScreen> {
   final AuthService _auth = AuthService();
   String? _email;
+  TimeOfDay? _heureRappel;
 
   @override
   void initState() {
@@ -145,6 +148,96 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 }
                 await OpenFilex.open(fichier.path);
               },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_active, color: AppTheme.primaryBlue),
+              title: const Text('Rappel quotidien'),
+              subtitle: Text(
+                _heureRappel != null
+                    ? 'Activé à ${_heureRappel!.format(context)}'
+                    : 'Choisir une heure pour le rappel de mesure',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final heureChoisie = await showTimePicker(
+                  context: context,
+                  initialTime: _heureRappel ?? const TimeOfDay(hour: 8, minute: 0),
+                  helpText: 'Choisir l\'heure du rappel',
+                );
+                if (heureChoisie == null) return;
+
+                await NotificationService().planifierRappelQuotidien(
+                  heure: heureChoisie.hour,
+                  minute: heureChoisie.minute,
+                );
+
+                setState(() { _heureRappel = heureChoisie; });
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(
+                      'Rappel activé tous les jours à ${heureChoisie.format(context)}',
+                    )),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_none, color: Colors.grey),
+              title: const Text('Tester une notification maintenant'),
+              subtitle: const Text('Vérifier que les notifications fonctionnent',
+                  style: TextStyle(fontSize: 12)),
+              onTap: () async {
+                await NotificationService().testerNotificationImmediate();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notification de test envoyée — vérifiez vos notifications')),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bug_report_outlined, color: Colors.grey),
+              title: const Text('Voir les rappels programmés'),
+              subtitle: const Text('Diagnostic technique', style: TextStyle(fontSize: 12)),
+              onTap: () async {
+                final rappels = await NotificationService().rappelsActifs();
+                if (!context.mounted) return;
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Rappels programmés'),
+                    content: rappels.isEmpty
+                        ? const Text('Aucun rappel programmé actuellement.')
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: rappels.map((r) => Text(
+                              '• ID ${r.id} : ${r.title}\n  ${r.body}',
+                              style: const TextStyle(fontSize: 12),
+                            )).toList(),
+                          ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Fermer'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.travel_explore, color: AppTheme.primaryBlue),
+              title: const Text('Explorer le serveur FHIR'),
+              subtitle: const Text('Consulter les observations disponibles en direct',
+                  style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ExplorateurFhirScreen()),
+              ),
             ),
           ]),
         ],
