@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../providers/mesures_provider.dart';
 import '../theme/app_theme.dart';
+import '../services/notification_service.dart';
+import '../services/pdf_service.dart';
+import 'package:open_filex/open_filex.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -81,6 +84,55 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 if (confirm == true && context.mounted) {
                   // TODO: implémenter suppression complète
                 }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud_download, color: AppTheme.primaryBlue),
+              title: const Text('Récupérer depuis le serveur FHIR'),
+              subtitle: provider.messageFhir != null
+                  ? Text(provider.messageFhir!, style: const TextStyle(fontSize: 12))
+                  : const Text('Vérifier les observations distantes (GET)',
+                      style: TextStyle(fontSize: 12)),
+              trailing: provider.recuperationFhir
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.chevron_right),
+              onTap: provider.recuperationFhir
+                  ? null
+                  : () => provider.recupererDepuisFhir(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_active, color: AppTheme.primaryBlue),
+              title: const Text('Activer le rappel quotidien (8h00)'),
+              subtitle: const Text('Recevoir une notification pour mesurer sa glycémie',
+                  style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await NotificationService().planifierRappelQuotidien(heure: 8, minute: 0);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Rappel quotidien activé à 8h00')),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf, color: AppTheme.primaryBlue),
+              title: const Text('Exporter mes données en PDF'),
+              subtitle: const Text('Générer un rapport complet',
+                  style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final fichier = await PdfService().genererRapport(
+                  provider.mesures, _email ?? 'Utilisateur',
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('PDF généré avec succès')),
+                  );
+                }
+                await OpenFilex.open(fichier.path);
               },
             ),
           ]),

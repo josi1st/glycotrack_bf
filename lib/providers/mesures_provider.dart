@@ -63,6 +63,27 @@ class MesuresProvider extends ChangeNotifier {
     if (count > 0) await charger();
   }
 
+  bool _recuperationFhir = false;
+  bool get recuperationFhir => _recuperationFhir;
+  String? _messageFhir;
+  String? get messageFhir => _messageFhir;
+
+  Future<void> recupererDepuisFhir() async {
+    _recuperationFhir = true;
+    _messageFhir = null;
+    notifyListeners();
+
+    try {
+      final observations = await _fhir.recupererObservations();
+      _messageFhir = '${observations.length} observation(s) trouvée(s) sur le serveur FHIR';
+    } catch (_) {
+      _messageFhir = 'Erreur lors de la récupération FHIR';
+    }
+
+    _recuperationFhir = false;
+    notifyListeners();
+  }
+
   void _syncEnArrierePlan() async {
     await Future.delayed(const Duration(seconds: 2));
     await synchroniser();
