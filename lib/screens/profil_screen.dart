@@ -7,7 +7,7 @@ import '../services/notification_service.dart';
 import '../services/pdf_service.dart';
 import 'package:open_filex/open_filex.dart';
 import 'explorateur_fhir_screen.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'login_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -18,13 +18,114 @@ class ProfilScreen extends StatefulWidget {
 
 class _ProfilScreenState extends State<ProfilScreen> {
   final AuthService _auth = AuthService();
-  String? _email;
-  TimeOfDay? _heureRappel;
+  final NotificationService _notif = NotificationService();
+
+  String? _nom;
+  String? _telephone;
+  Map<String, String>? _infosRappel;
+  bool _suppressionEnCours = false;
 
   @override
   void initState() {
     super.initState();
-    _auth.lireEmail().then((e) => setState(() => _email = e));
+    _chargerProfil();
+    _chargerInfosRappel();
+  }
+
+  Future<void> _chargerProfil() async {
+    final nom = await _auth.lireNom();
+    final telephone = await _auth.lireTelephone();
+    if (!mounted) return;
+    setState(() {
+      _nom = nom;
+      _telephone = telephone;
+    });
+  }
+
+  Future<void> _chargerInfosRappel() async {
+    final infos = await _notif.infosRappelSauvegarde();
+    if (!mounted) return;
+    setState(() { _infosRappel = infos; });
+  }
+
+  String _formaterDate(String isoDate) {
+    if (isoDate.isEmpty) return '';
+    try {
+      final date = DateTime.parse(isoDate);
+      final jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+      return '${jours[date.weekday - 1]} ${date.day}/${date.month} à '
+          '${date.hour.toString().padLeft(2, '0')}h${date.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
+  Future<void> _choisirHeureRappel() async {
+    final initial = _infosRappel != null
+        ? TimeOfDay(
+            hour: int.parse(_infosRappel!['heure']!),
+            minute: int.parse(_infosRappel!['minute']!),
+          )
+        : const TimeOfDay(hour: 8, minute: 0);
+
+    final heureChoisie = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      helpText: 'Choisir l\'heure du rappel',
+    );
+    if (heureChoisie == null) return;
+
+    await _notif.planifierRappelQuotidien(
+      heure: heureChoisie.hour,
+      minute: heureChoisie.minute,
+    );
+
+    await _chargerInfosRappel();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(
+          'Rappel activé tous les jours à ${heureChoisie.format(context)}',
+        )),
+      );
+    }
+  }
+
+  Future<void> _annulerRappel() async {
+    await _notif.annulerRappels();
+    await _chargerInfosRappel();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rappel annulé')),
+      );
+    }
+  }
+
+  Future<void> _supprimerToutesLesDonnees() async {
+    setState(() { _suppressionEnCours = true; });
+
+    final provider = context.read<MesuresProvider>();
+
+    // 1. Supprimer toutes les mesures (Hive)
+    await provider.supprimerTout();
+
+    // 2. Annuler les rappels programmés
+    await _notif.annulerRappels();
+
+    // 3. Supprimer le profil (nom, téléphone, consentement RGPD)
+    await _auth.supprimerProfilComplet();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Toutes vos données ont été supprimées')),
+    );
+
+    // Retour à l'écran de connexion (l'utilisateur devra recréer un profil)
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   @override
@@ -46,13 +147,18 @@ class _ProfilScreenState extends State<ProfilScreen> {
           ),
           const SizedBox(height: 12),
           Center(
-            child: Text(_email ?? 'Utilisateur',
+            child: Text(_nom ?? 'Utilisateur',
                 style: const TextStyle(
                     fontSize: 18, fontWeight: FontWeight.bold)),
           ),
+          if (_telephone != null)
+            Center(
+              child: Text('+226 $_telephone',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            ),
           const SizedBox(height: 24),
 
-          // Infos
+          // Statistiques personnelles
           _Section('Statistiques personnelles', [
             _InfoTile(Icons.list_alt, 'Total mesures', '${provider.mesures.length}'),
             _InfoTile(Icons.analytics, 'Moyenne glycémie',
@@ -62,33 +168,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
           ]),
 
           const SizedBox(height: 16),
-          _Section('Données & Confidentialité', [
-            ListTile(
-              leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: const Text('Supprimer toutes mes données'),
-              onTap: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Supprimer tout ?'),
-                    content: const Text(
-                        'Toutes vos mesures seront supprimées définitivement.'),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Annuler')),
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Supprimer',
-                              style: TextStyle(color: Colors.red))),
-                    ],
-                  ),
-                );
-                if (confirm == true && context.mounted) {
-                  // TODO: implémenter suppression complète
-                }
-              },
-            ),
+
+          // Serveur FHIR
+          _Section('Serveur FHIR', [
             ListTile(
               leading: Icon(
                 provider.derniereVerificationOk == true
@@ -117,20 +199,64 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   : () => provider.verifierIntegriteSync(),
             ),
             ListTile(
-              leading: const Icon(Icons.notifications_active, color: AppTheme.primaryBlue),
-              title: const Text('Activer le rappel quotidien (8h00)'),
-              subtitle: const Text('Recevoir une notification pour mesurer sa glycémie',
+              leading: const Icon(Icons.travel_explore, color: AppTheme.primaryBlue),
+              title: const Text('Explorer le serveur FHIR'),
+              subtitle: const Text('Consulter les observations disponibles en direct',
                   style: TextStyle(fontSize: 12)),
               trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ExplorateurFhirScreen()),
+              ),
+            ),
+          ]),
+
+          const SizedBox(height: 16),
+
+          // Notifications
+          _Section('Rappels & Notifications', [
+            ListTile(
+              leading: Icon(
+                _infosRappel != null ? Icons.alarm_on : Icons.alarm_off,
+                color: _infosRappel != null ? AppTheme.accentGreen : Colors.grey,
+              ),
+              title: Text(_infosRappel != null
+                  ? 'Rappel actif : ${_infosRappel!['heure']!.padLeft(2, '0')}h${_infosRappel!['minute']!.padLeft(2, '0')}'
+                  : 'Aucun rappel programmé'),
+              subtitle: Text(
+                _infosRappel != null
+                    ? 'Prochain déclenchement estimé : ${_formaterDate(_infosRappel!['prochaine']!)}'
+                    : 'Touchez pour choisir une heure de rappel quotidien',
+                style: const TextStyle(fontSize: 11),
+              ),
+              trailing: _infosRappel != null
+                  ? IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: _annulerRappel,
+                    )
+                  : const Icon(Icons.chevron_right),
+              onTap: _choisirHeureRappel,
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_none, color: Colors.grey),
+              title: const Text('Tester une notification maintenant'),
+              subtitle: const Text('Vérifier que les notifications fonctionnent',
+                  style: TextStyle(fontSize: 12)),
               onTap: () async {
-                await NotificationService().planifierRappelQuotidien(heure: 8, minute: 0);
+                await _notif.testerNotificationImmediate();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Rappel quotidien activé à 8h00')),
+                    const SnackBar(content: Text('Notification de test envoyée — vérifiez vos notifications')),
                   );
                 }
               },
             ),
+          ]),
+
+          const SizedBox(height: 16),
+
+          // Données & Confidentialité
+          _Section('Données & Confidentialité', [
             ListTile(
               leading: const Icon(Icons.picture_as_pdf, color: AppTheme.primaryBlue),
               title: const Text('Exporter mes données en PDF'),
@@ -139,7 +265,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
                 final fichier = await PdfService().genererRapport(
-                  provider.mesures, _email ?? 'Utilisateur',
+                  provider.mesures, _nom ?? 'Utilisateur',
                 );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -150,94 +276,38 @@ class _ProfilScreenState extends State<ProfilScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.notifications_active, color: AppTheme.primaryBlue),
-              title: const Text('Rappel quotidien'),
-              subtitle: Text(
-                _heureRappel != null
-                    ? 'Activé à ${_heureRappel!.format(context)}'
-                    : 'Choisir une heure pour le rappel de mesure',
-                style: const TextStyle(fontSize: 12),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final heureChoisie = await showTimePicker(
-                  context: context,
-                  initialTime: _heureRappel ?? const TimeOfDay(hour: 8, minute: 0),
-                  helpText: 'Choisir l\'heure du rappel',
-                );
-                if (heureChoisie == null) return;
-
-                await NotificationService().planifierRappelQuotidien(
-                  heure: heureChoisie.hour,
-                  minute: heureChoisie.minute,
-                );
-
-                setState(() { _heureRappel = heureChoisie; });
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(
-                      'Rappel activé tous les jours à ${heureChoisie.format(context)}',
-                    )),
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications_none, color: Colors.grey),
-              title: const Text('Tester une notification maintenant'),
-              subtitle: const Text('Vérifier que les notifications fonctionnent',
+              leading: _suppressionEnCours
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
+                  : const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text('Supprimer toutes mes données'),
+              subtitle: const Text('Mesures, profil et rappels seront effacés définitivement',
                   style: TextStyle(fontSize: 12)),
-              onTap: () async {
-                await NotificationService().testerNotificationImmediate();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Notification de test envoyée — vérifiez vos notifications')),
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.bug_report_outlined, color: Colors.grey),
-              title: const Text('Voir les rappels programmés'),
-              subtitle: const Text('Diagnostic technique', style: TextStyle(fontSize: 12)),
-              onTap: () async {
-                final rappels = await NotificationService().rappelsActifs();
-                if (!context.mounted) return;
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Rappels programmés'),
-                    content: rappels.isEmpty
-                        ? const Text('Aucun rappel programmé actuellement.')
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: rappels.map((r) => Text(
-                              '• ID ${r.id} : ${r.title}\n  ${r.body}',
-                              style: const TextStyle(fontSize: 12),
-                            )).toList(),
-                          ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Fermer'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.travel_explore, color: AppTheme.primaryBlue),
-              title: const Text('Explorer le serveur FHIR'),
-              subtitle: const Text('Consulter les observations disponibles en direct',
-                  style: TextStyle(fontSize: 12)),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ExplorateurFhirScreen()),
-              ),
+              onTap: _suppressionEnCours
+                  ? null
+                  : () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Supprimer tout ?'),
+                          content: const Text(
+                              'Toutes vos mesures, votre profil et vos rappels seront supprimés définitivement. Cette action est irréversible.'),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Annuler')),
+                            TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Supprimer',
+                                    style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await _supprimerToutesLesDonnees();
+                      }
+                    },
             ),
           ]),
         ],

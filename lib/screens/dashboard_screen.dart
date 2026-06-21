@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/mesures_provider.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/graphique_glycemie.dart';
+import 'ajout_mesure_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final AuthService _auth = AuthService();
+  String? _nom;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth.lireNom().then((n) => setState(() => _nom = n));
+  }
+
+  String get _salutation {
+    final heure = DateTime.now().hour;
+    if (heure < 12) return 'Bonjour';
+    if (heure < 18) return 'Bon après-midi';
+    return 'Bonsoir';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +36,7 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tableau de Bord'),
+        title: const Text('GlycoTrack BF'),
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
@@ -31,6 +53,36 @@ class DashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Salutation personnalisée
+              Text(
+                '$_salutation${_nom != null ? ', ${_nom!.split(' ').first}' : ''} 👋',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Voici votre suivi glycémique du jour',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+
+              // CTA principal — Ajouter une mesure
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AjoutMesureScreen()),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Enregistrer ma glycémie maintenant'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
               // Carte dernière mesure
               if (derniere != null) ...[
                 Card(
@@ -73,10 +125,19 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
               ] else
-                const Card(
+                Card(
                   child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: Text('Aucune mesure enregistrée')),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Icon(Icons.bloodtype_outlined, size: 40, color: Colors.grey[400]),
+                        const SizedBox(height: 8),
+                        const Text('Aucune mesure enregistrée pour le moment',
+                            textAlign: TextAlign.center),
+                        const Text('Commencez par ajouter votre première mesure !',
+                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -107,20 +168,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Graphique
-              const Text('Évolution (7 derniers jours)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 220,
-                child: GraphiqueGlycemie(
-                  mesures: provider.mesures.take(7).toList(),
-                ),
-              ),
-
-              // Non synchronisées
               if (provider.nonSynchronisees > 0) ...[
-                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -132,9 +180,11 @@ class DashboardScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.cloud_off, color: AppTheme.alertOrange),
                       const SizedBox(width: 8),
-                      Text(
-                        '${provider.nonSynchronisees} mesure(s) non synchronisée(s)',
-                        style: TextStyle(color: AppTheme.alertOrange),
+                      Expanded(
+                        child: Text(
+                          '${provider.nonSynchronisees} mesure(s) non synchronisée(s)',
+                          style: TextStyle(color: AppTheme.alertOrange),
+                        ),
                       ),
                     ],
                   ),

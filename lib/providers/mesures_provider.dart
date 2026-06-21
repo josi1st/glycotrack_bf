@@ -38,6 +38,14 @@ class MesuresProvider extends ChangeNotifier {
     _sync = SyncService(_storage, _fhir);
   }
 
+
+  Future<void> supprimerTout() async {
+    await _storage.toutSupprimer();
+    _mesures = [];
+    _nonSynchronisees = 0;
+    notifyListeners();
+  }
+
   Future<void> charger() async {
     _chargement = true;
     notifyListeners();

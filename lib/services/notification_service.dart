@@ -1,10 +1,12 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   bool _initialise = false;
 
   Future<void> initialiser() async {
@@ -13,8 +15,7 @@ class NotificationService {
     tz_data.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Africa/Ouagadougou'));
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('ic_notification');
     const settings = InitializationSettings(android: androidSettings);
 
     await _plugin.initialize(settings);
@@ -54,6 +55,32 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
     );
+
+    // On sauvegarde l'heure choisie pour pouvoir l'afficher dans le diagnostic
+    await _storage.write(key: 'rappel_heure', value: heure.toString());
+    await _storage.write(key: 'rappel_minute', value: minute.toString());
+    await _storage.write(
+        key: 'rappel_prochaine_date', value: prochaine.toIso8601String());
+  }
+
+  Future<Map<String, String>?> infosRappelSauvegarde() async {
+    final heure = await _storage.read(key: 'rappel_heure');
+    final minute = await _storage.read(key: 'rappel_minute');
+    final prochaine = await _storage.read(key: 'rappel_prochaine_date');
+    if (heure == null || minute == null) return null;
+    return {
+      'heure': heure,
+      'minute': minute,
+      'prochaine': prochaine ?? '',
+    };
+  }
+
+  /// Retourne un résumé lisible des rappels programmés (pour debug/affichage utilisateur)
+  Future<List<String>> rappelsActifsLisibles() async {
+    final rappels = await _plugin.pendingNotificationRequests();
+    return rappels.map((r) {
+      return '${r.title ?? "Rappel"} — ${r.body ?? ""}';
+    }).toList();
   }
 
   /// Envoie une notification de test IMMÉDIATE (utile pour vérifier que tout fonctionne)
@@ -93,6 +120,9 @@ class NotificationService {
 
   Future<void> annulerRappels() async {
     await _plugin.cancelAll();
+    await _storage.delete(key: 'rappel_heure');
+    await _storage.delete(key: 'rappel_minute');
+    await _storage.delete(key: 'rappel_prochaine_date');
   }
 
   Future<List<PendingNotificationRequest>> rappelsActifs() async {

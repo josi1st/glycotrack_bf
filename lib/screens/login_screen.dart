@@ -11,7 +11,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _auth = AuthService();
-  final _emailController = TextEditingController();
+  final _nomController = TextEditingController();
+  final _telephoneController = TextEditingController();
 
   bool _chargement = false;
   bool _profilExiste = false;
@@ -31,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _verificationInitiale = false;
     });
 
-    // Si un profil existe déjà, on déclenche directement la biométrie
     if (existe) {
       _authentifier();
     }
@@ -64,16 +64,22 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _creerProfilEtAuthentifier() async {
-    if (_emailController.text.trim().isEmpty || !_emailController.text.contains('@')) {
-      setState(() { _erreur = 'Veuillez saisir une adresse e-mail valide.'; });
+    final nom = _nomController.text.trim();
+    final telephone = _telephoneController.text.trim();
+
+    if (nom.isEmpty) {
+      setState(() { _erreur = 'Veuillez saisir votre nom.'; });
       return;
     }
+
+    final telephoneValide = RegExp(r'^(\+226)?[0-9]{8}$').hasMatch(telephone.replaceAll(' ', ''));
+    if (!telephoneValide) {
+      setState(() { _erreur = 'Numéro invalide. Format attendu : 8 chiffres (ex: 70123456).'; });
+      return;
+    }
+
     setState(() { _erreur = null; });
-
-    // L'email identifie juste l'utilisateur, il NE donne PAS accès à l'app
-    await _auth.sauvegarderEmail(_emailController.text.trim());
-
-    // La biométrie reste obligatoire pour entrer
+    await _auth.sauvegarderProfil(nom: nom, telephone: telephone);
     await _authentifier();
   }
 
@@ -110,21 +116,31 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 48),
 
               if (!_profilExiste) ...[
-                // Première utilisation : on demande l'email (identification, pas connexion)
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Bienvenue ! Renseignez votre e-mail pour créer votre profil local.',
+                    'Bienvenue ! Renseignez vos informations pour créer votre profil local.',
                     style: TextStyle(fontSize: 13, color: Colors.grey),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
+                  controller: _nomController,
+                  textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(
-                    labelText: 'Adresse e-mail',
-                    prefixIcon: Icon(Icons.email_outlined),
+                    labelText: 'Nom complet',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _telephoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Numéro de téléphone',
+                    hintText: 'Ex: 70123456',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                    prefixText: '+226 ',
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -170,7 +186,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _nomController.dispose();
+    _telephoneController.dispose();
     super.dispose();
   }
 }

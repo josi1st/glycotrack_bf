@@ -17,7 +17,14 @@ class AuthService {
     );
   }
 
-  /// Vérifie si la biométrie est disponible ET configurée sur l'appareil
+
+  Future<void> supprimerProfilComplet() async {
+    await _storage.delete(key: 'user_nom');
+    await _storage.delete(key: 'user_telephone');
+    await _storage.delete(key: 'consentement_rgpd');
+  }
+
+  
   Future<bool> biometrieDisponible() async {
     try {
       final supporte = await _auth.isDeviceSupported();
@@ -28,7 +35,6 @@ class AuthService {
     }
   }
 
-  /// Authentification réelle — c'est la SEULE porte d'entrée vers l'app
   Future<bool> authentifierBiometrie() async {
     try {
       final disponible = await biometrieDisponible();
@@ -37,7 +43,7 @@ class AuthService {
       return await _auth.authenticate(
         localizedReason: 'Identifiez-vous pour accéder à vos données de santé',
         options: const AuthenticationOptions(
-          biometricOnly: false, // autorise aussi le code PIN/schéma du téléphone en secours
+          biometricOnly: false,
           stickyAuth: true,
         ),
       );
@@ -46,16 +52,21 @@ class AuthService {
     }
   }
 
-  Future<void> sauvegarderEmail(String email) async {
-    await _storage.write(key: 'user_email', value: email);
+  Future<void> sauvegarderProfil({required String nom, required String telephone}) async {
+    await _storage.write(key: 'user_nom', value: nom);
+    await _storage.write(key: 'user_telephone', value: telephone);
   }
 
-  Future<String?> lireEmail() async {
-    return await _storage.read(key: 'user_email');
+  Future<String?> lireNom() async {
+    return await _storage.read(key: 'user_nom');
+  }
+
+  Future<String?> lireTelephone() async {
+    return await _storage.read(key: 'user_telephone');
   }
 
   Future<bool> profilExiste() async {
-    final email = await lireEmail();
-    return email != null;
+    final nom = await lireNom();
+    return nom != null;
   }
 }

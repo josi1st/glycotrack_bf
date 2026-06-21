@@ -46,3 +46,31 @@
 
 # Google Play Core (deferred components - non utilise par notre app)
 -dontwarn com.google.android.play.core.**
+
+# flutter_local_notifications (regles completes - WorkManager + AlarmManager)
+-keep class androidx.work.** { *; }
+-keepclassmembers class * extends androidx.work.Worker {
+    public <init>(android.content.Context,androidx.work.WorkerParameters);
+}
+-keepclassmembers class * extends androidx.work.InputMerger {
+    public <init>();
+}
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context,androidx.work.WorkerParameters);
+}
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+-keep class com.dexterous.flutterlocalnotifications.models.** { *; }
+-keepclassmembers class com.dexterous.flutterlocalnotifications.** { *; }
+
+# flutter_secure_storage (Android Keystore / crypto)
+-keep class androidx.security.crypto.** { *; }
+-keep class com.it_nomads.fluttersecurestorage.** { *; }
+-keepclassmembers class com.it_nomads.fluttersecurestorage.** { *; }
+-dontwarn androidx.security.crypto.**
+
+# Reflexion generale (evite que R8 supprime des methodes utilisees dynamiquement)
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+-keepclassmembers class * {
+    public <init>(...);
+}
