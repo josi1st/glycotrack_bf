@@ -1,38 +1,60 @@
+/// Service pour communiquer avec un serveur FHIR
+///
+/// Utilise l'API HAPI FHIR public pour:
+/// - Envoyer des observations de glycémie
+/// - Récupérer des observations par ID
+/// - Parcourir les données du serveur
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/mesure_glycemie.dart';
 
+/// Modèle pour une observation FHIR récupérée du serveur
 class ObservationFhir {
+  /// Identifiant unique sur le serveur FHIR
   final String id;
+
+  /// Valeur de glycémie en g/L
   final double valeur;
+
+  /// Date/heure de l'observation
   final DateTime date;
 
   ObservationFhir({required this.id, required this.valeur, required this.date});
 
+  /// Factory pour créer une ObservationFhir à partir d'un JSON FHIR
   factory ObservationFhir.depuisJson(Map<String, dynamic> json) {
     return ObservationFhir(
       id: json['id'] ?? '',
       valeur: (json['valueQuantity']?['value'] as num?)?.toDouble() ?? 0,
-      date: DateTime.tryParse(json['effectiveDateTime'] ?? '') ?? DateTime.now(),
+      date:
+          DateTime.tryParse(json['effectiveDateTime'] ?? '') ?? DateTime.now(),
     );
   }
 }
 
+/// Service pour l'interopérabilité FHIR
 class FhirService {
+  /// URL de base du serveur FHIR public HAPI
   static const String _baseUrl = 'https://hapi.fhir.org/baseR4';
 
   /// Envoie une mesure vers le serveur FHIR et retourne l'ID FHIR créé
+  ///
+  /// Crée une Observation FHIR standard avec code LOINC 2339-0 (glucose)
+  /// Retourne l'ID FHIR de l'observation créée, ou null si erreur
   Future<String?> envoyerObservation(MesureGlycemie mesure) async {
     try {
       final body = jsonEncode({
         'resourceType': 'Observation',
         'status': 'final',
         'code': {
-          'coding': [{
-            'system': 'http://loinc.org',
-            'code': '2339-0',
-            'display': 'Glucose [Mass/volume] in Blood'
-          }]
+          'coding': [
+            {
+              'system': 'http://loinc.org',
+              'code': '2339-0',
+              'display': 'Glucose [Mass/volume] in Blood'
+            }
+          ]
         },
         'valueQuantity': {
           'value': mesure.valeur,
@@ -43,11 +65,13 @@ class FhirService {
         'effectiveDateTime': mesure.date.toIso8601String(),
       });
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/Observation'),
-        headers: {'Content-Type': 'application/fhir+json'},
-        body: body,
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/Observation'),
+            headers: {'Content-Type': 'application/fhir+json'},
+            body: body,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
@@ -77,10 +101,12 @@ class FhirService {
   }
 
   /// Récupère les dernières observations de glycémie sur le serveur (aperçu général)
-  Future<List<ObservationFhir>> recupererDernieresObservations({int limite = 10}) async {
+  Future<List<ObservationFhir>> recupererDernieresObservations(
+      {int limite = 10}) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/Observation?code=2339-0&_count=$limite&_sort=-date'),
+        Uri.parse(
+            '$_baseUrl/Observation?code=2339-0&_count=$limite&_sort=-date'),
         headers: {'Accept': 'application/fhir+json'},
       ).timeout(const Duration(seconds: 10));
 
@@ -100,10 +126,12 @@ class FhirService {
   /// Explore le serveur FHIR de façon indépendante : récupère les dernières
   /// observations de glycémie de TOUS les contributeurs, pas seulement les nôtres.
   /// Prouve un vrai GET exploratoire, non lié à nos propres envois.
-  Future<List<ObservationFhir>> explorerObservationsServeur({int limite = 15}) async {
+  Future<List<ObservationFhir>> explorerObservationsServeur(
+      {int limite = 15}) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/Observation?code=2339-0&_count=$limite&_sort=-_lastUpdated'),
+        Uri.parse(
+            '$_baseUrl/Observation?code=2339-0&_count=$limite&_sort=-_lastUpdated'),
         headers: {'Accept': 'application/fhir+json'},
       ).timeout(const Duration(seconds: 10));
 

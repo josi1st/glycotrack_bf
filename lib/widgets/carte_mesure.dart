@@ -1,19 +1,34 @@
+/// Widget pour afficher une mesure de glycémie
+///
+/// Affiche:
+/// - Valeur et statut (couleur codée)
+/// - Moment et date de la mesure
+/// - Note optionnelle
+/// - Statut de synchronisation FHIR
+/// - Bouton de suppression optionnel
+
 import 'package:flutter/material.dart';
 import '../models/mesure_glycemie.dart';
 import '../theme/app_theme.dart';
 
+/// Widget stateless pour afficher une mesure sous forme de carte
 class CarteMesure extends StatelessWidget {
+  /// La mesure à afficher
   final MesureGlycemie mesure;
+
+  /// Callback optionnel pour la suppression
   final VoidCallback? onSupprimer;
 
   const CarteMesure({super.key, required this.mesure, this.onSupprimer});
 
+  /// Retourne la couleur en fonction du statut de glycémie
   Color get _couleur {
     if (mesure.estCritique) return AppTheme.alertRed;
     if (mesure.estAlerteOrange) return AppTheme.alertOrange;
     return AppTheme.accentGreen;
   }
 
+  /// Retourne l'icône en fonction du statut de glycémie
   IconData get _icone {
     if (mesure.estCritique) return Icons.warning_rounded;
     if (mesure.estAlerteOrange) return Icons.warning_amber_rounded;
@@ -53,7 +68,8 @@ class CarteMesure extends StatelessWidget {
             Icon(
               mesure.estSynchronisee ? Icons.cloud_done : Icons.cloud_off,
               size: 16,
-              color: mesure.estSynchronisee ? AppTheme.accentGreen : Colors.grey,
+              color:
+                  mesure.estSynchronisee ? AppTheme.accentGreen : Colors.grey,
             ),
             if (onSupprimer != null)
               IconButton(

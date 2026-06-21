@@ -1,25 +1,44 @@
+/// Service pour la gestion des notifications locales
+///
+/// Gère:
+/// - Initialisation du système de notifications (fuseau horaire d'Afrique de l'Ouest)
+/// - Planification de rappels quotidiens
+/// - Envoi de notifications de test
+/// - Stockage et récupération des horaires de rappel sauvegardés
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+/// Service singleton pour la gestion des notifications
 class NotificationService {
+  /// Plugin Flutter pour les notifications locales
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+
+  /// Stockage sécurisé pour les horaires de rappel
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  /// Flag pour éviter d'initialiser plusieurs fois
   bool _initialise = false;
 
+  /// Initialise le système de notifications
   Future<void> initialiser() async {
     if (_initialise) return;
 
+    // Initialiser les données de fuseaux horaires
     tz_data.initializeTimeZones();
+    // Définir le fuseau horaire local (Ouagadougou = Afrique de l'Ouest)
     tz.setLocalLocation(tz.getLocation('Africa/Ouagadougou'));
 
+    // Créer le canal de notification Android
     const androidSettings = AndroidInitializationSettings('ic_notification');
     const settings = InitializationSettings(android: androidSettings);
 
     await _plugin.initialize(settings);
 
+    // Demander la permission pour les notifications (Android 13+)
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -28,6 +47,12 @@ class NotificationService {
     _initialise = true;
   }
 
+  /// Planifie un rappel quotidien à l'heure spécifiée
+  ///
+  /// Va:
+  /// - Créer une notification répétée chaque jour à heure/minute
+  /// - Sauvegarder l'horaire pour réaffichage dans le profil
+  /// - Fonctionner même en arrière-plan ou écran verrouillé
   Future<void> planifierRappelQuotidien({
     required int heure,
     required int minute,

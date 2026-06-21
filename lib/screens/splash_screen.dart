@@ -1,8 +1,17 @@
+/// Écran de démarrage (splash screen)
+///
+/// Affiche:
+/// - Logo de l'application
+/// - Animation de chargement (2 secondes)
+/// - Vérification du consentement RGPD
+/// - Redirection vers authentification ou consentement
+
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/consentement_dialog.dart';
 
+/// Écran StatefulWidget de démarrage
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -11,6 +20,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  /// Service d'authentification pour les vérifications
   final AuthService _auth = AuthService();
 
   @override
@@ -19,10 +29,16 @@ class _SplashScreenState extends State<SplashScreen> {
     _initialiser();
   }
 
+  /// Initialise l'app:
+  /// 1. Affiche le splash screen pendant 2 secondes
+  /// 2. Vérifie si c'est le premier lancement
+  /// 3. Affiche le dialog de consentement RGPD ou va à la connexion
   Future<void> _initialiser() async {
+    // Afficher le splash screen pendant 2 secondes
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
+    // Vérifier si premier lancement (consentement RGPD non enregistré)
     final premierLancement = await _auth.estPremierLancement();
     if (premierLancement) {
       _afficherConsentement();
@@ -31,24 +47,30 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
+  /// Affiche le dialog de consentement RGPD
+  ///
+  /// L'utilisateur doit accepter pour continuer
   void _afficherConsentement() {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => ConsentementDialog(
         onAccepter: () async {
+          // Enregistrer l'acceptation du consentement
           await _auth.enregistrerConsentement();
           if (mounted) Navigator.pop(context);
           _allerLogin();
         },
         onRefuser: () {
           Navigator.pop(context);
+          // Afficher à nouveau si l'utilisateur refuse
           _afficherConsentement();
         },
       ),
     );
   }
 
+  /// Navigue vers l'écran de connexion
   void _allerLogin() {
     Navigator.pushReplacementNamed(context, '/login');
   }

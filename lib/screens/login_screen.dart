@@ -1,7 +1,16 @@
+/// Écran d'authentification et création de profil
+///
+/// Gère:
+/// - Création du profil initial (nom et téléphone)
+/// - Authentification biométrique (empreinte, visage, PIN)
+/// - Validation des entrées utilisateur
+/// - Navigation vers l'écran d'accueil après succès
+
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
+/// Écran StatefulWidget pour l'authentification
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -10,13 +19,25 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  /// Service d'authentification
   final AuthService _auth = AuthService();
+
+  /// Contrôleur pour le nom complet
   final _nomController = TextEditingController();
+
+  /// Contrôleur pour le numéro de téléphone
   final _telephoneController = TextEditingController();
 
+  /// Flag indiquant un chargement en cours
   bool _chargement = false;
+
+  /// True si un profil existe déjà
   bool _profilExiste = false;
+
+  /// True pendant la vérification initiale du profil
   bool _verificationInitiale = true;
+
+  /// Message d'erreur à afficher
   String? _erreur;
 
   @override
@@ -25,6 +46,10 @@ class _LoginScreenState extends State<LoginScreen> {
     _verifierProfil();
   }
 
+  /// Vérifie si un profil utilisateur existe
+  ///
+  /// Si oui, déclenche immédiatement l'authentification
+  /// Si non, affiche le formulaire de création
   Future<void> _verifierProfil() async {
     final existe = await _auth.profilExiste();
     setState(() {
@@ -37,8 +62,15 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Authentifie l'utilisateur par biométrie
+  ///
+  /// Vérifie que la biométrie est disponible avant de déclencher
+  /// l'authentification native
   Future<void> _authentifier() async {
-    setState(() { _chargement = true; _erreur = null; });
+    setState(() {
+      _chargement = true;
+      _erreur = null;
+    });
 
     final biometrieOk = await _auth.biometrieDisponible();
     if (!biometrieOk) {
@@ -63,22 +95,38 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Crée un nouveau profil et tente une authentification
+  ///
+  /// Étapes:
+  /// 1. Récupère et valide les champs (nom, téléphone)
+  /// 2. Sauvegarde le profil de manière sécurisée
+  /// 3. Déclenche l'authentification biométrique
   Future<void> _creerProfilEtAuthentifier() async {
     final nom = _nomController.text.trim();
     final telephone = _telephoneController.text.trim();
 
+    // Valider le nom
     if (nom.isEmpty) {
-      setState(() { _erreur = 'Veuillez saisir votre nom.'; });
+      setState(() {
+        _erreur = 'Veuillez saisir votre nom.';
+      });
       return;
     }
 
-    final telephoneValide = RegExp(r'^(\+226)?[0-9]{8}$').hasMatch(telephone.replaceAll(' ', ''));
+    // Valider le numéro de téléphone (format Burkina Faso: 8 chiffres)
+    final telephoneValide =
+        RegExp(r'^(\+226)?[0-9]{8}$').hasMatch(telephone.replaceAll(' ', ''));
     if (!telephoneValide) {
-      setState(() { _erreur = 'Numéro invalide. Format attendu : 8 chiffres (ex: 70123456).'; });
+      setState(() {
+        _erreur =
+            'Numéro invalide. Format attendu : 8 chiffres (ex: 70123456).';
+      });
       return;
     }
 
-    setState(() { _erreur = null; });
+    setState(() {
+      _erreur = null;
+    });
     await _auth.sauvegarderProfil(nom: nom, telephone: telephone);
     await _authentifier();
   }
@@ -114,7 +162,6 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text('Master e-Santé & Télémédecine',
                   style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 48),
-
               if (!_profilExiste) ...[
                 const Align(
                   alignment: Alignment.centerLeft,
@@ -145,7 +192,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
               ],
-
               if (_erreur != null) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -158,18 +204,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
               ],
-
               if (_chargement)
                 const CircularProgressIndicator()
               else
                 ElevatedButton.icon(
-                  onPressed: _profilExiste ? _authentifier : _creerProfilEtAuthentifier,
+                  onPressed: _profilExiste
+                      ? _authentifier
+                      : _creerProfilEtAuthentifier,
                   icon: const Icon(Icons.fingerprint),
                   label: Text(_profilExiste
                       ? 'S\'authentifier'
                       : 'Créer mon profil et s\'authentifier'),
                 ),
-
               const SizedBox(height: 16),
               Text(
                 '🔒 La biométrie (ou le code de votre téléphone) est obligatoire '

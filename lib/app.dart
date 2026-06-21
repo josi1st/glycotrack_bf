@@ -1,3 +1,10 @@
+/// Application principale GlycoTrack BF
+///
+/// Configuré avec:
+/// - Navigation par routes nommées
+/// - Thème clair personnalisé
+/// - Structure de navigation avec BottomNavigationBar
+
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
@@ -8,6 +15,7 @@ import 'screens/historique_screen.dart';
 import 'screens/alertes_screen.dart';
 import 'screens/profil_screen.dart';
 
+/// Widget racine de l'application
 class GlycoTrackApp extends StatelessWidget {
   const GlycoTrackApp({super.key});
 
@@ -28,6 +36,14 @@ class GlycoTrackApp extends StatelessWidget {
   }
 }
 
+/// Écran principal après connexion
+///
+/// Affiche une navigation par onglets avec:
+/// - Accueil (Dashboard)
+/// - Historique
+/// - Ajouter une mesure (bouton central)
+/// - Alertes
+/// - Profil
 class AccueilScreen extends StatefulWidget {
   const AccueilScreen({super.key});
 
@@ -36,10 +52,11 @@ class AccueilScreen extends StatefulWidget {
 }
 
 class _AccueilScreenState extends State<AccueilScreen> {
+  /// Index de l'onglet actuellement sélectionné
   int _index = 0;
 
-  // Index 2 = bouton central "Ajouter" -> ne correspond a aucune page,
-  // il ouvre l'ecran d'ajout par-dessus au lieu de changer d'onglet.
+  /// Index 2 = bouton central "Ajouter" -> ne correspond a aucune page,
+  /// il ouvre l'ecran d'ajout par-dessus au lieu de changer d'onglet.
   final List<Widget> _pages = const [
     DashboardScreen(),
     HistoriqueScreen(),
@@ -48,6 +65,10 @@ class _AccueilScreenState extends State<AccueilScreen> {
     ProfilScreen(),
   ];
 
+  /// Gère la sélection d'onglet
+  ///
+  /// L'index 2 (bouton "Ajouter") ouvre l'écran d'ajout en modal
+  /// sans changer d'onglet courant
   void _onDestinationSelected(int i) {
     if (i == 2) {
       Navigator.push(
@@ -73,7 +94,8 @@ class _AccueilScreenState extends State<AccueilScreen> {
             icon: Icon(Icons.add_circle, size: 32, color: AppTheme.accentGreen),
             label: 'Ajouter',
           ),
-          NavigationDestination(icon: Icon(Icons.warning_rounded), label: 'Alertes'),
+          NavigationDestination(
+              icon: Icon(Icons.warning_rounded), label: 'Alertes'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Profil'),
         ],
       ),

@@ -1,8 +1,21 @@
+/// Dialog d'affichage et d'acceptation du consentement RGPD
+///
+/// Affiche:
+/// - Le texte du consentement
+/// - Les droits de l'utilisateur en matière de données
+/// - Boutons d'acceptation/refus
+///
+/// Permet à l'utilisateur d'accepter les conditions avant d'utiliser l'app
+
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+/// Dialog stateless pour le consentement RGPD
 class ConsentementDialog extends StatelessWidget {
+  /// Callback lorsque l'utilisateur accepte
   final VoidCallback onAccepter;
+
+  /// Callback lorsque l'utilisateur refuse
   final VoidCallback onRefuser;
 
   const ConsentementDialog({
@@ -31,10 +44,14 @@ class ConsentementDialog extends StatelessWidget {
               style: TextStyle(fontSize: 14),
             ),
             const SizedBox(height: 12),
-            _buildPoint(Icons.storage, 'Vos données de glycémie sont stockées localement et chiffrées sur votre appareil.'),
-            _buildPoint(Icons.sync, 'Avec votre accord, elles peuvent être synchronisées avec un serveur FHIR sécurisé.'),
-            _buildPoint(Icons.person, 'Aucune donnée personnelle n\'est partagée avec des tiers sans votre consentement.'),
-            _buildPoint(Icons.delete, 'Vous pouvez supprimer vos données à tout moment depuis les paramètres.'),
+            _buildPoint(Icons.storage,
+                'Vos données de glycémie sont stockées localement et chiffrées sur votre appareil.'),
+            _buildPoint(Icons.sync,
+                'Avec votre accord, elles peuvent être synchronisées avec un serveur FHIR sécurisé.'),
+            _buildPoint(Icons.person,
+                'Aucune donnée personnelle n\'est partagée avec des tiers sans votre consentement.'),
+            _buildPoint(Icons.delete,
+                'Vous pouvez supprimer vos données à tout moment depuis les paramètres.'),
           ],
         ),
       ),

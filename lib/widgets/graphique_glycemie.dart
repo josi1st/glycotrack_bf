@@ -1,19 +1,31 @@
+/// Widget pour afficher un graphique linéaire de l'évolution de la glycémie
+///
+/// Affiche:
+/// - Courbe d'évolution des mesures au fil du temps
+/// - Lignes de seuil (normal, alerte orange, alerte critique)
+/// - Grille avec labels de date et valeurs
+/// - Gère l'historique complet des mesures
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../models/mesure_glycemie.dart';
 import '../theme/app_theme.dart';
 
+/// Widget stateless pour le graphique de glycémie
 class GraphiqueGlycemie extends StatelessWidget {
+  /// Liste des mesures à afficher (sera inversée pour la chronologie)
   final List<MesureGlycemie> mesures;
 
   const GraphiqueGlycemie({super.key, required this.mesures});
 
   @override
   Widget build(BuildContext context) {
+    // Afficher un message si aucune donnée
     if (mesures.isEmpty) {
       return const Center(child: Text('Aucune donnée à afficher'));
     }
 
+    // Inverser pour afficher la chronologie correcte (ancien -> récent)
     final reversed = mesures.reversed.toList();
 
     return LineChart(
@@ -54,8 +66,10 @@ class GraphiqueGlycemie extends StatelessWidget {
               },
             ),
           ),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: true),
         extraLinesData: ExtraLinesData(
@@ -86,9 +100,11 @@ class GraphiqueGlycemie extends StatelessWidget {
         ),
         lineBarsData: [
           LineChartBarData(
-            spots: reversed.asMap().entries.map((e) =>
-              FlSpot(e.key.toDouble(), e.value.valeur)
-            ).toList(),
+            spots: reversed
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.valeur))
+                .toList(),
             isCurved: true,
             color: AppTheme.primaryBlue,
             barWidth: 3,
